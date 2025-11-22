@@ -1,0 +1,5 @@
+{
+  "name": "Laundry Management System",
+  "description": "A comprehensive Laundry Management System application built with React and Tailwind CSS. It features a dashboard with key performance indicators and charts, and a detailed form for placing new orders. The interface is designed to be responsive and user-friendly, with a clean, modern aesthetic.",
+  "requestFramePermissions": []
+}
