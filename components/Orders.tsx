@@ -331,9 +331,9 @@ const Orders: React.FC = () => {
                         setClientNumber('');
                         setOrderItems([{ productId: '1', quantity: 1, unitPrice: 500 }]);
                         setDeliveryDate('');
-                    } catch (error) {
+                    } catch (error: any) {
                         console.error('Failed to submit order:', error);
-                        alert('Erreur lors de l\'enregistrement de la commande.');
+                        alert(`Erreur lors de l'enregistrement de la commande: ${error.message}`);
                     }
                 }}
                 data={{
