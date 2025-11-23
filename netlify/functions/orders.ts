@@ -105,50 +105,49 @@ export const handler: Handler = async (event, context) => {
                 client.release();
             }
         }
-    }
 
         if (event.httpMethod === 'PUT') {
-        const data = JSON.parse(event.body || '{}');
-        const { id, status } = data;
+            const data = JSON.parse(event.body || '{}');
+            const { id, status } = data;
 
-        const client = await pool.connect();
-        try {
-            await client.query('UPDATE orders SET status = $1 WHERE id = $2', [status, id]);
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({ message: 'Order updated' })
-            };
-        } finally {
-            client.release();
+            const client = await pool.connect();
+            try {
+                await client.query('UPDATE orders SET status = $1 WHERE id = $2', [status, id]);
+                return {
+                    statusCode: 200,
+                    headers,
+                    body: JSON.stringify({ message: 'Order updated' })
+                };
+            } finally {
+                client.release();
+            }
         }
-    }
 
-    if (event.httpMethod === 'DELETE') {
-        const { id } = event.queryStringParameters || {};
-        if (!id) return { statusCode: 400, headers, body: 'Missing ID' };
+        if (event.httpMethod === 'DELETE') {
+            const { id } = event.queryStringParameters || {};
+            if (!id) return { statusCode: 400, headers, body: 'Missing ID' };
 
-        const client = await pool.connect();
-        try {
-            await client.query('DELETE FROM orders WHERE id = $1', [id]);
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({ message: 'Order deleted' })
-            };
-        } finally {
-            client.release();
+            const client = await pool.connect();
+            try {
+                await client.query('DELETE FROM orders WHERE id = $1', [id]);
+                return {
+                    statusCode: 200,
+                    headers,
+                    body: JSON.stringify({ message: 'Order deleted' })
+                };
+            } finally {
+                client.release();
+            }
         }
+
+        return { statusCode: 405, headers, body: 'Method Not Allowed' };
+
+    } catch (error: any) {
+        console.error('API Error:', error);
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: error.message })
+        };
     }
-
-    return { statusCode: 405, headers, body: 'Method Not Allowed' };
-
-} catch (error: any) {
-    console.error('API Error:', error);
-    return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: error.message })
-    };
-}
 };
