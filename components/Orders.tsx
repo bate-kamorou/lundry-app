@@ -313,6 +313,8 @@ const Orders: React.FC = () => {
                         items: orderItems,
                         pickupCharge: Number(pickupCharge) || 0,
                         deliveryCharge: Number(deliveryCharge) || 0,
+                        pickupType,
+                        deliveryType,
                         totalAmount,
                         deliveryDate,
                         status: 'En cours'
@@ -336,6 +338,8 @@ const Orders: React.FC = () => {
                     items: orderItems,
                     pickupCharge: Number(pickupCharge) || 0,
                     deliveryCharge: Number(deliveryCharge) || 0,
+                    pickupType,
+                    deliveryType,
                     totalAmount,
                     deliveryDate
                 }}

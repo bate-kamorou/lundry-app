@@ -5,13 +5,15 @@ import { OrderItem } from '../types';
 interface SavedOrder {
     id: string;
     date: string;
-    customerName: string; // Changed from customerId
+    customerName: string;
     clientNumber: string;
     service: string;
     totalAmount: number;
     deliveryDate: string;
     status: string;
     items: OrderItem[];
+    pickupType?: string;
+    deliveryType?: string;
 }
 
 const Clients: React.FC<{ onNavigate: (view: any) => void }> = ({ onNavigate }) => {
@@ -32,7 +34,9 @@ const Clients: React.FC<{ onNavigate: (view: any) => void }> = ({ onNavigate }) 
                     totalAmount: typeof o.totalAmount === 'number' ? o.totalAmount : 0,
                     deliveryDate: o.deliveryDate || '',
                     status: o.status || 'En cours',
-                    items: Array.isArray(o.items) ? o.items : []
+                    items: Array.isArray(o.items) ? o.items : [],
+                    pickupType: o.pickupType || 'Non spécifié',
+                    deliveryType: o.deliveryType || 'Non spécifié'
                 }));
                 setOrders(validOrders.sort((a: SavedOrder, b: SavedOrder) => new Date(b.date).getTime() - new Date(a.date).getTime()));
             } else {
@@ -45,6 +49,17 @@ const Clients: React.FC<{ onNavigate: (view: any) => void }> = ({ onNavigate }) 
     }, []);
 
     const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+    const deleteOrder = (orderId: string) => {
+        if (window.confirm("Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.")) {
+            const updatedOrders = orders.filter(order => order.id !== orderId);
+            setOrders(updatedOrders);
+            localStorage.setItem('laundry_orders', JSON.stringify(updatedOrders));
+            if (expandedOrderId === orderId) {
+                setExpandedOrderId(null);
+            }
+        }
+    };
 
     const toggleStatus = (orderId: string) => {
         const updatedOrders = orders.map(order => {
@@ -149,7 +164,7 @@ const Clients: React.FC<{ onNavigate: (view: any) => void }> = ({ onNavigate }) 
                                             <td className="px-4 py-4 text-center">
                                                 <div className="text-sm font-bold text-slate-800 truncate">{order.customerName}</div>
                                             </td>
-                                            <td className="px-4 py-4 text-sm text-slate-600 text-center">
+                                            <td className="px-4 py-4 text-sm text-slate-600 text-center whitespace-nowrap">
                                                 {order.clientNumber || '-'}
                                             </td>
                                             <td className="px-4 py-4 text-sm text-slate-600 text-center">
@@ -181,8 +196,8 @@ const Clients: React.FC<{ onNavigate: (view: any) => void }> = ({ onNavigate }) 
                                             <tr className="bg-slate-50">
                                                 <td colSpan={8} className="px-6 py-4">
                                                     <div className="bg-white rounded-lg border border-slate-200 p-4">
-                                                        <h4 className="text-sm font-bold text-slate-700 mb-3">Détails de la commande</h4>
-                                                        <table className="min-w-full divide-y divide-slate-100">
+
+                                                        <table className="min-w-full divide-y divide-slate-100 mb-4">
                                                             <thead>
                                                                 <tr>
                                                                     <th className="text-left text-xs font-medium text-slate-500 uppercase pb-2">Article</th>
@@ -205,6 +220,24 @@ const Clients: React.FC<{ onNavigate: (view: any) => void }> = ({ onNavigate }) 
                                                                 })}
                                                             </tbody>
                                                         </table>
+                                                        <div className="flex  items-start mb-4">
+                                                            {/* <h4 className="text-sm font-bold text-slate-700">Détails de la commande</h4> */}
+                                                            <div className="text-sm text-green-600 text-center bg-green-50 p-2 rounded">
+                                                                <p><span className="font-semibold">Collecte: </span> {order.pickupType}</p>
+                                                                <p><span className="font-semibold">Livraison: </span> {order.deliveryType}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex justify-end">
+                                                            <button
+                                                                onClick={() => deleteOrder(order.id)}
+                                                                className="flex items-center px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                                Supprimer la commande
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </td>
                                             </tr>
