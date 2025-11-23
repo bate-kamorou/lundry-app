@@ -73,81 +73,67 @@ export const handler: Handler = async (event, context) => {
                 } = data;
 
                 await client.query(`
-                    INSERT INTO orders (
-                        id, date, customer_name, client_number, service, 
-                        total_amount, delivery_date, status, 
-                        pickup_charge, delivery_charge, pickup_type, delivery_type
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-                `, [
-                    id, date, customerName, clientNumber, service,
-                    totalAmount, deliveryDate, status,
-                    pickupCharge, deliveryCharge, pickupType, deliveryType
-                ]);
-
-                for (const item of items) {
-                    await client.query(`
-                        INSERT INTO order_items (order_id, product_id, quantity, unit_price)
                         VALUES ($1, $2, $3, $4)
                     `, [id, item.productId, item.quantity, item.unitPrice]);
-                }
+            }
 
                 await client.query('COMMIT');
 
-                return {
-                    statusCode: 201,
-                    headers,
-                    body: JSON.stringify({ message: 'Order created' })
-                };
-            } catch (e) {
-                await client.query('ROLLBACK');
-                throw e;
-            } finally {
-                client.release();
-            }
+            return {
+                statusCode: 201,
+                headers,
+                body: JSON.stringify({ message: 'Order created' })
+            };
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
         }
+    }
 
         if (event.httpMethod === 'PUT') {
-            const data = JSON.parse(event.body || '{}');
-            const { id, status } = data;
+        const data = JSON.parse(event.body || '{}');
+        const { id, status } = data;
 
-            const client = await pool.connect();
-            try {
-                await client.query('UPDATE orders SET status = $1 WHERE id = $2', [status, id]);
-                return {
-                    statusCode: 200,
-                    headers,
-                    body: JSON.stringify({ message: 'Order updated' })
-                };
-            } finally {
-                client.release();
-            }
+        const client = await pool.connect();
+        try {
+            await client.query('UPDATE orders SET status = $1 WHERE id = $2', [status, id]);
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({ message: 'Order updated' })
+            };
+        } finally {
+            client.release();
         }
-
-        if (event.httpMethod === 'DELETE') {
-            const { id } = event.queryStringParameters || {};
-            if (!id) return { statusCode: 400, headers, body: 'Missing ID' };
-
-            const client = await pool.connect();
-            try {
-                await client.query('DELETE FROM orders WHERE id = $1', [id]);
-                return {
-                    statusCode: 200,
-                    headers,
-                    body: JSON.stringify({ message: 'Order deleted' })
-                };
-            } finally {
-                client.release();
-            }
-        }
-
-        return { statusCode: 405, headers, body: 'Method Not Allowed' };
-
-    } catch (error: any) {
-        console.error('API Error:', error);
-        return {
-            statusCode: 500,
-            headers,
-            body: JSON.stringify({ error: error.message })
-        };
     }
+
+    if (event.httpMethod === 'DELETE') {
+        const { id } = event.queryStringParameters || {};
+        if (!id) return { statusCode: 400, headers, body: 'Missing ID' };
+
+        const client = await pool.connect();
+        try {
+            await client.query('DELETE FROM orders WHERE id = $1', [id]);
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({ message: 'Order deleted' })
+            };
+        } finally {
+            client.release();
+        }
+    }
+
+    return { statusCode: 405, headers, body: 'Method Not Allowed' };
+
+} catch (error: any) {
+    console.error('API Error:', error);
+    return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: error.message })
+    };
+}
 };
