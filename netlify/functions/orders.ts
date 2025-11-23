@@ -73,22 +73,37 @@ export const handler: Handler = async (event, context) => {
                 } = data;
 
                 await client.query(`
+                    INSERT INTO orders (
+                        id, date, customer_name, client_number, service, 
+                        total_amount, delivery_date, status, 
+                        pickup_charge, delivery_charge, pickup_type, delivery_type
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                `, [
+                    id, date, customerName, clientNumber, service,
+                    totalAmount, deliveryDate === '' ? null : deliveryDate, status,
+                    pickupCharge, deliveryCharge, pickupType, deliveryType
+                ]);
+
+                for (const item of items) {
+                    await client.query(`
+                        INSERT INTO order_items (order_id, product_id, quantity, unit_price)
                         VALUES ($1, $2, $3, $4)
                     `, [id, item.productId, item.quantity, item.unitPrice]);
-            }
+                }
 
                 await client.query('COMMIT');
 
-            return {
-                statusCode: 201,
-                headers,
-                body: JSON.stringify({ message: 'Order created' })
-            };
-        } catch (e) {
-            await client.query('ROLLBACK');
-            throw e;
-        } finally {
-            client.release();
+                return {
+                    statusCode: 201,
+                    headers,
+                    body: JSON.stringify({ message: 'Order created' })
+                };
+            } catch (e) {
+                await client.query('ROLLBACK');
+                throw e;
+            } finally {
+                client.release();
+            }
         }
     }
 
