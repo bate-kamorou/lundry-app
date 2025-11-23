@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import type { OrderItem } from '../types';
 import { CUSTOMERS, PRODUCTS, SERVICES, COLLECT_TYPES, DELIVERY_TYPES } from '../data';
 import InvoiceModal from './InvoiceModal';
+import { api } from '../api';
 
 const Orders: React.FC = () => {
     const [customerName, setCustomerName] = useState('');
@@ -179,7 +180,7 @@ const Orders: React.FC = () => {
                                             </select>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <input type="number" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)} min="1" className="w-24 p-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-green-500 outline-none" />
+                                            <input type="number" value={item.quantity === 0 ? '' : item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value === '' ? 0 : parseInt(e.target.value))} min="1" className="w-24 p-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-green-500 outline-none" />
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-600">
                                             {['Nettoyage à sec', 'Repassage seul', 'Abonnement', 'Lavage et Repassage'].includes(service) ? (
@@ -303,7 +304,7 @@ const Orders: React.FC = () => {
             <InvoiceModal
                 isOpen={isReviewModalOpen}
                 onClose={() => setIsReviewModalOpen(false)}
-                onConfirm={() => {
+                onConfirm={async () => {
                     const newOrder = {
                         id: Date.now().toString(),
                         date: new Date().toISOString(),
@@ -320,17 +321,20 @@ const Orders: React.FC = () => {
                         status: 'En cours'
                     };
 
-                    const existingOrders = JSON.parse(localStorage.getItem('laundry_orders') || '[]');
-                    localStorage.setItem('laundry_orders', JSON.stringify([...existingOrders, newOrder]));
+                    try {
+                        await api.createOrder(newOrder);
+                        console.log('Order Submitted:', newOrder);
+                        setIsReviewModalOpen(false);
+                        alert('Commande enregistrée avec succès !');
 
-                    console.log('Order Submitted:', newOrder);
-                    setIsReviewModalOpen(false);
-                    alert('Commande enregistrée avec succès !');
-
-                    // Reset form
-                    setClientNumber('');
-                    setOrderItems([{ productId: '1', quantity: 1, unitPrice: 500 }]);
-                    setDeliveryDate('');
+                        // Reset form
+                        setClientNumber('');
+                        setOrderItems([{ productId: '1', quantity: 1, unitPrice: 500 }]);
+                        setDeliveryDate('');
+                    } catch (error) {
+                        console.error('Failed to submit order:', error);
+                        alert('Erreur lors de l\'enregistrement de la commande.');
+                    }
                 }}
                 data={{
                     customerName,

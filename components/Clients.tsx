@@ -1,76 +1,58 @@
 import React, { useEffect, useState } from 'react';
 import { CUSTOMERS, PRODUCTS } from '../data';
-import { OrderItem } from '../types';
+import { OrderItem, SavedOrder } from '../types';
+import { api } from '../api';
 
-interface SavedOrder {
-    id: string;
-    date: string;
-    customerName: string;
-    clientNumber: string;
-    service: string;
-    totalAmount: number;
-    deliveryDate: string;
-    status: string;
-    items: OrderItem[];
-    pickupType?: string;
-    deliveryType?: string;
-}
+// interface SavedOrder removed
 
 const Clients: React.FC<{ onNavigate: (view: any) => void }> = ({ onNavigate }) => {
     const [orders, setOrders] = useState<SavedOrder[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
+        loadOrders();
+    }, []);
+
+    const loadOrders = async () => {
         try {
-            const savedOrders = JSON.parse(localStorage.getItem('laundry_orders') || '[]');
-            if (Array.isArray(savedOrders)) {
-                // Strict sanitization: Ensure every order has all required fields with safe defaults
-                const validOrders = savedOrders.map((o: any) => ({
-                    id: o.id || Date.now().toString() + Math.random().toString(),
-                    date: o.date || new Date().toISOString(),
-                    customerName: o.customerName || 'Client Inconnu',
-                    clientNumber: o.clientNumber || '-',
-                    service: o.service || 'Service Inconnu',
-                    totalAmount: typeof o.totalAmount === 'number' ? o.totalAmount : 0,
-                    deliveryDate: o.deliveryDate || '',
-                    status: o.status || 'En cours',
-                    items: Array.isArray(o.items) ? o.items : [],
-                    pickupType: o.pickupType || 'Non spécifié',
-                    deliveryType: o.deliveryType || 'Non spécifié'
-                }));
-                setOrders(validOrders.sort((a: SavedOrder, b: SavedOrder) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-            } else {
-                setOrders([]);
-            }
+            const validOrders = await api.getOrders();
+            setOrders(validOrders);
         } catch (error) {
             console.error("Failed to load orders:", error);
             setOrders([]);
         }
-    }, []);
+    };
 
     const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
-    const deleteOrder = (orderId: string) => {
+    const deleteOrder = async (orderId: string) => {
         if (window.confirm("Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.")) {
-            const updatedOrders = orders.filter(order => order.id !== orderId);
-            setOrders(updatedOrders);
-            localStorage.setItem('laundry_orders', JSON.stringify(updatedOrders));
-            if (expandedOrderId === orderId) {
-                setExpandedOrderId(null);
+            try {
+                await api.deleteOrder(orderId);
+                setOrders(orders.filter(order => order.id !== orderId));
+                if (expandedOrderId === orderId) {
+                    setExpandedOrderId(null);
+                }
+            } catch (error) {
+                console.error("Failed to delete order:", error);
+                alert("Erreur lors de la suppression de la commande.");
             }
         }
     };
 
-    const toggleStatus = (orderId: string) => {
-        const updatedOrders = orders.map(order => {
-            if (order.id === orderId) {
-                const newStatus = order.status === 'Prêt / livré' ? 'En cours' : 'Prêt / livré';
-                return { ...order, status: newStatus };
-            }
-            return order;
-        });
-        setOrders(updatedOrders);
-        localStorage.setItem('laundry_orders', JSON.stringify(updatedOrders));
+    const toggleStatus = async (orderId: string) => {
+        const order = orders.find(o => o.id === orderId);
+        if (!order) return;
+
+        const newStatus = order.status === 'Prêt / livré' ? 'En cours' : 'Prêt / livré';
+
+        try {
+            await api.updateOrderStatus(orderId, newStatus);
+            setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+        } catch (error) {
+            console.error("Failed to update status:", error);
+            alert("Erreur lors de la mise à jour du statut.");
+        }
     };
 
     const toggleExpand = (orderId: string) => {

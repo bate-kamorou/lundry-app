@@ -1,9 +1,11 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { servicesAndSubscribersData, monthlyOrdersData, yearlyOrdersData, monthlyPackageIncomeData, monthlyOrdinaryIncomeData, CHART_COLORS } from '../constants';
+import { CHART_COLORS } from '../constants';
 import KPICard from './KPI_Card';
 import ChartCard from './ChartCard';
+import { SavedOrder } from '../types';
+import { api } from '../api';
 
 const TruckIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-17.25 4.5v-1.875a3.375 3.375 0 003.375-3.375h1.5a1.125 1.125 0 011.125 1.125v-1.5a3.375 3.375 0 00-3.375-3.375H3.375m15.75 9V14.25-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H3.375m15.75 9v-1.875" /></svg>
@@ -20,44 +22,111 @@ const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 
 const Dashboard: React.FC = () => {
+    const [orders, setOrders] = useState<SavedOrder[]>([]);
+    const [stats, setStats] = useState({
+        deliveryToday: 0,
+        newOrders: 0,
+        pickupRequests: 0,
+        expiringToday: 0,
+        revenueByService: [] as any[],
+        ordersByStatus: [] as any[],
+        monthlyRevenue: [] as any[]
+    });
+
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const savedOrders = await api.getOrders();
+                setOrders(savedOrders);
+                calculateStats(savedOrders);
+            } catch (error) {
+                console.error("Failed to load orders for dashboard", error);
+            }
+        };
+        loadData();
+    }, []);
+
+    const calculateStats = (data: SavedOrder[]) => {
+        const today = new Date().toISOString().split('T')[0];
+
+        // KPIs
+        const deliveryToday = data.filter(o => o.deliveryType === 'Livraison à domicile' && o.deliveryDate === today).length;
+        const newOrders = data.filter(o => o.status === 'En cours').length;
+        const pickupRequests = data.filter(o => o.pickupType === 'Ramassage à domicile').length;
+        const expiringToday = data.filter(o => o.deliveryDate === today && o.status !== 'Prêt / livré').length;
+
+        // Charts Data
+
+        // Services Breakdown
+        const servicesCount: Record<string, number> = {};
+        data.forEach(o => {
+            servicesCount[o.service] = (servicesCount[o.service] || 0) + 1;
+        });
+        const revenueByService = Object.keys(servicesCount).map(service => ({
+            name: service,
+            'Commandes': servicesCount[service]
+        }));
+
+        // Orders by Status (Pie Chart)
+        const statusCount: Record<string, number> = {};
+        data.forEach(o => {
+            statusCount[o.status] = (statusCount[o.status] || 0) + 1;
+        });
+        const ordersByStatus = Object.keys(statusCount).map(status => ({
+            name: status,
+            value: statusCount[status]
+        }));
+
+        // Monthly Revenue
+        const revenueByMonth: Record<string, number> = {};
+        data.forEach(o => {
+            const date = new Date(o.date);
+            const month = date.toLocaleString('default', { month: 'short' });
+            revenueByMonth[month] = (revenueByMonth[month] || 0) + o.totalAmount;
+        });
+        const monthlyRevenue = Object.keys(revenueByMonth).map(month => ({
+            name: month,
+            'Revenu': revenueByMonth[month]
+        }));
+
+        setStats({
+            deliveryToday,
+            newOrders,
+            pickupRequests,
+            expiringToday,
+            revenueByService,
+            ordersByStatus,
+            monthlyRevenue
+        });
+    };
+
     return (
         <div className="space-y-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <KPICard title="Livraison à domicile aujourd'hui" value="2" icon={TruckIcon} color="green" />
-                <KPICard title="Nouvelles Commandes" value="5" icon={EnvelopeIcon} color="blue" />
-                <KPICard title="Demandes de collecte" value="2" icon={LinkIcon} color="orange" />
-                <KPICard title="Expirant aujourd'hui" value="3" icon={TrashIcon} color="red" />
+                <KPICard title="Livraison à domicile aujourd'hui" value={stats.deliveryToday.toString()} icon={TruckIcon} color="green" />
+                <KPICard title="Commandes En Cours" value={stats.newOrders.toString()} icon={EnvelopeIcon} color="blue" />
+                <KPICard title="Demandes de collecte" value={stats.pickupRequests.toString()} icon={LinkIcon} color="orange" />
+                <KPICard title="A Livrer Aujourd'hui" value={stats.expiringToday.toString()} icon={TrashIcon} color="red" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <ChartCard title="Services et Abonnés" className="lg:col-span-1">
+                <ChartCard title="Commandes par Service" className="lg:col-span-2">
                     <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={servicesAndSubscribersData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                        <BarChart data={stats.revenueByService} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
                             <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                             <YAxis allowDecimals={false} />
                             <Tooltip />
                             <Legend />
-                            <Bar dataKey="Abonnement" fill="#16a34a" />
+                            <Bar dataKey="Commandes" fill="#16a34a" />
                         </BarChart>
                     </ResponsiveContainer>
                 </ChartCard>
-                <ChartCard title="Commandes de ce mois">
+                <ChartCard title="Statut des Commandes">
                     <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
-                            <Pie data={monthlyOrdersData} cx="50%" cy="50%" labelLine={false} outerRadius={80} fill="#8884d8" dataKey="value" >
-                                {monthlyOrdersData.map((entry, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
-                            </Pie>
-                            <Tooltip />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </ChartCard>
-                <ChartCard title="Commandes de cette année">
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie data={yearlyOrdersData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} fill="#8884d8" paddingAngle={5} dataKey="value">
-                                {yearlyOrdersData.map((entry, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
+                            <Pie data={stats.ordersByStatus} cx="50%" cy="50%" labelLine={false} outerRadius={80} fill="#8884d8" dataKey="value" >
+                                {stats.ordersByStatus.map((entry, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
                             </Pie>
                             <Tooltip />
                             <Legend />
@@ -65,28 +134,16 @@ const Dashboard: React.FC = () => {
                     </ResponsiveContainer>
                 </ChartCard>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ChartCard title="Revenu mensuel des forfaits">
+            <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+                <ChartCard title="Revenu Mensuel">
                     <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={monthlyPackageIncomeData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                        <BarChart data={stats.monthlyRevenue} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
                             <XAxis dataKey="name" />
                             <YAxis />
                             <Tooltip />
                             <Legend />
-                            <Bar dataKey="Montant Total" fill="#fb923c" />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </ChartCard>
-                <ChartCard title="Revenu mensuel ordinaire">
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={monthlyOrdinaryIncomeData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="name" />
-                            <YAxis />
-                            <Tooltip />
-                            <Legend />
-                            <Bar dataKey="Montant Total" fill="#f87171" />
+                            <Bar dataKey="Revenu" fill="#fb923c" />
                         </BarChart>
                     </ResponsiveContainer>
                 </ChartCard>

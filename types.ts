@@ -25,3 +25,17 @@ export interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }
+
+export interface SavedOrder {
+  id: string;
+  date: string;
+  customerName: string;
+  clientNumber: string;
+  service: string;
+  totalAmount: number;
+  deliveryDate: string;
+  status: string;
+  items: OrderItem[];
+  pickupType?: string;
+  deliveryType?: string;
+}
